@@ -15,6 +15,7 @@ from config import STATE_DIR
 DB = STATE_DIR / "chatbot-relay.sqlite3"
 TTL = 48 * 3600
 CODE = re.compile(r"^#TL-([0-9A-F]{8})\s+(.+)$", re.DOTALL)
+QUOTED_CODE = re.compile(r"^#TL-([0-9A-F]{8})(?:\s|\|)")
 
 
 def _db():
@@ -80,6 +81,19 @@ def claim(bot_id, account_id, sender_id, text):
     return {"code": code, "customer_id": row[0], "customer_name": row[1], "answer": answer}
 
 
+def reply_text(ev, text):
+    """A quoted escalation carries its case code; a new message must spell the code out."""
+    raw = str(text or "").strip()
+    if CODE.fullmatch(raw):
+        return raw
+    quoted = (ev.get("metadata") or {}).get("replyTo")
+    if isinstance(quoted, dict):
+        m = QUOTED_CODE.match(str(quoted.get("text") or "").strip())
+        if m and raw and not raw.upper().startswith("#TL-"):
+            return f"#TL-{m.group(1)} {raw}"
+    return raw
+
+
 async def handle_owner_reply(transport, ev, text):
     """Consume only a valid owner case reply; other owner messages reach the normal bot."""
     cfg = transport.cfg_fn() if transport.cfg_fn else {}
@@ -90,6 +104,7 @@ async def handle_owner_reply(transport, ev, text):
             or str(ev.get("external_chat_id") or "") != owner
             or str(ev.get("sender_id") or "") != owner):
         return False
+    text = reply_text(ev, text)
     case = claim(str(cfg.get("id") or ""), transport.conn_id, owner, text)
     if case is None:
         if str(text or "").strip().upper().startswith("#TL-"):
@@ -122,9 +137,9 @@ async def escalate(transport, cfg, meta, question, note):
                   str(meta.get("user_name") or ""), str(question or ""), str(note or ""))
     if not code:
         return False
-    msg = (f"Khách {meta.get('user_name') or customer} hỏi: {str(question or '')[:700]}\n"
+    msg = (f"#TL-{code} | Khách {meta.get('user_name') or customer} hỏi: {str(question or '')[:700]}\n"
            + (f"Ghi chú bot: {str(note)[:300]}\n" if note else "")
-           + f"Trả lời bằng: #TL-{code} <nội dung gửi cho khách>. Phần sau mã sẽ gửi nguyên văn tới đúng chat khách này.")
+           + f"Anh bấm Trả lời tin này và viết nội dung gửi khách, hoặc gửi tin mới: #TL-{code} <nội dung>. Câu trả lời được chuyển nguyên văn tới đúng chat khách này.")
     if not await transport._gui(owner, msg, "private"):
         set_status(code, "failed")
         return False

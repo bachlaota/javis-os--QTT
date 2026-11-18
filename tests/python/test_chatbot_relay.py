@@ -59,6 +59,14 @@ async def main():
     assert await relay.handle_owner_reply(t, event(), f"#TL-{failed} Xin chào")
     assert len([x for x in t.sent if x[0] == "888888888"]) == 1
 
+    # Replying to the bot's quoted question works without typing a code.
+    t.fail = False
+    quoted = relay.create("bot-1", "account-1", "123456789", "666666666", "Khách mới", "Câu hỏi", "")
+    ev = event()
+    ev["metadata"] = {"replyTo": {"text": f"#TL-{quoted} | Khách mới hỏi: Câu hỏi"}}
+    assert await relay.handle_owner_reply(t, ev, "Em xác nhận giá là 500.000đ ạ")
+    assert t.sent[-2] == ("666666666", "Em xác nhận giá là 500.000đ ạ", "private")
+
 
 asyncio.run(main())
 print("PASS chatbot relay")
