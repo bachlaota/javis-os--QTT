@@ -1047,6 +1047,8 @@ def create_bot(data: dict) -> tuple[Optional[str], str]:
             # Zalo chat labels the bot stays out of (0.281.0, personal Zalo only), e.g. family and friends.
             "skip_labels": clean_skip_labels(data.get("skip_labels")),
             "handoff_to": str(data.get("handoff_to") or "").strip(),
+            "relay_owner_id": str(data.get("relay_owner_id") or "").strip()
+            if re.fullmatch(r"\d{3,25}", str(data.get("relay_owner_id") or "").strip()) else "",
             "created_at": _now(),
             "updated_at": _now(),
         }
@@ -1085,6 +1087,7 @@ def _nhan_brain_cho_tk(bot: dict) -> None:
 # `rate_limit` (trần câu trả lời mỗi người mỗi giờ) bị gỡ ở 0.85.4: bản ghi cũ còn khoá đó thì cứ để nguyên,
 # không ai đọc nó nữa, và patch gửi khoá đó tới thì bị bỏ qua như mọi khoá lạ.
 _PATCHABLE = ("name", "icon", "groups", "people", "audience", "reply_when", "handoff_to",
+              "relay_owner_id",
               "agent_slug", "agent_brain", "brain", "bot_username", "token", "enabled",
               "nguon_tra_loi", "muc_quyen", "ngon_ngu", "account_ids", "reply_policy", "gio_truc",
               "nhuong_tay_phut", "ngoai_le", "nhan_ket_ban", "skip_labels", "blocked",
@@ -1100,6 +1103,9 @@ def update_bot(bot_id: str, patch: dict) -> tuple[bool, str]:
     # rồi một hôm được nâng lên. Thiếu rào ở đây thì cả cái gate lúc tạo thành trang trí.
     if "muc_quyen" in patch and can_xac_nhan(patch.get("muc_quyen"), patch.get("xac_nhan_rui_ro")):
         return False, _loi(LOI_CHUA_XAC_NHAN)
+    if "relay_owner_id" in patch and str(patch.get("relay_owner_id") or "").strip() and not re.fullmatch(
+            r"\d{3,25}", str(patch.get("relay_owner_id") or "").strip()):
+        return False, localefmt.chu("Mã chat chủ Zalo không hợp lệ.", "Invalid Zalo owner chat id.")
     if "audience" in patch and can_xac_nhan_doi_tuong(
             patch.get("audience"), patch.get("xac_nhan_rui_ro"),
             (get_bot(bot_id) or {}).get("audience")):
@@ -1200,6 +1206,8 @@ def update_bot(bot_id: str, patch: dict) -> tuple[bool, str]:
 
                 elif k == "handoff_to":
                     b["handoff_to"] = str(v or "").strip()
+                elif k == "relay_owner_id":
+                    b["relay_owner_id"] = str(v or "").strip()
                 elif k == "agent_slug":
                     # Đã kiểm ở đầu hàm, tới đây chắc chắn hợp lệ.
                     b.setdefault("agent", {})["slug"] = str(v).strip()

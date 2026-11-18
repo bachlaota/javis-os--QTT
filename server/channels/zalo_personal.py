@@ -825,6 +825,12 @@ class Transport:
         minh = (zc._ID_MINH.get(self.conn_id) or {}).get("uid")
         if minh and str(ev.get("sender_id") or "") == minh:
             return
+        if not nhom and kieu == "text":
+            # The exact case code is consumed by the server before the model sees the owner's reply.
+            # This never gives the customer-facing model a cross-chat send tool.
+            import chatbot_relay
+            if await chatbot_relay.handle_owner_reply(self, ev, text):
+                return
         if nhom:
             await self._bao_nhom(thread, ev)
         # Lượt "chủ chưa trả lời" (0.136.0, `zc.xa_cho_chu`) cũ là có chủ ý. Since 0.172.0 it is released once the

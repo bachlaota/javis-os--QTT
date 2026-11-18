@@ -47,6 +47,7 @@ import chatbot_grounding
 import chatbot_log
 import chatbot_reply_policy
 import chatbot_reply_policy_store
+import chatbot_relay
 import chatbot_store
 import chatbot_tu_dong
 import conversations
@@ -2083,7 +2084,14 @@ def _make_answer_fn(bot_id: str):
         if note is not None:
             _rp_retract(rp_dec, "agent_silent")
             _BI_LIEN_TIEP[(bot_id, chat_id)] = 0
-            rang = _bao_chu_bell(cfg, meta or {}, text, note)
+            transport = (_RUNNING.get(bot_id) or {}).get("pollers", {}).get(aid_luot)
+            relay = False
+            if kenh_luot == "zalo_personal" and not tu_dong:
+                try:
+                    relay = await chatbot_relay.escalate(transport, cfg, meta or {}, text, note)
+                except Exception as e:  # noqa: BLE001 - an owner DM failure must not leak the marker
+                    print(f"[chatbot relay {bot_id}] {type(e).__name__}: {e}", file=sys.stderr)
+            rang = relay or _bao_chu_bell(cfg, meta or {}, text, note)
             chatbot_log.ghi(bot_id, {
                 "chat_id": chat_id, "chat_type": (meta or {}).get("chat_type"),
                 "user_name": (meta or {}).get("user_name"), "hoi": text,
@@ -2092,6 +2100,11 @@ def _make_answer_fn(bot_id: str):
                 "chuyen_nguoi": rang, "bi": False,
                 "muc_quyen": cfg.get("muc_quyen") or "suggest",
             })
+            if relay:
+                ack = "Dạ anh chị đợi em một chút, em hỏi lại người phụ trách rồi phản hồi tại đây ạ."
+                receipt = ghi_tin_bot(cfg, meta or {}, ack, zalo_sending=True)
+                return {"text": ack, "files": [], "bao_chu": True, "reaction": reaction,
+                        "_zalo_delivery_row_id": receipt}
             return {"text": "", "files": [], "im_lang": True, "bao_chu": True, "reaction": reaction}
         if not loi_ky_thuat and IM_LANG.lower() in dap.lower():
             _rp_retract(rp_dec, "agent_silent")
