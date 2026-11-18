@@ -39,6 +39,7 @@ def create(bot_id, account_id, owner, customer_id, customer_name, question, note
     if not all((bot_id, account_id, owner, customer_id, question)) or owner == customer_id:
         return ""
     with _db() as db:
+        db.execute("DELETE FROM relay WHERE created_at<?", (time.time() - 7 * 86400,))
         # A fresh question supersedes the previous unanswered question in this customer chat.
         db.execute("""UPDATE relay SET status='superseded' WHERE bot_id=? AND account_id=?
                       AND customer_id=? AND status='pending'""", (bot_id, account_id, customer_id))
