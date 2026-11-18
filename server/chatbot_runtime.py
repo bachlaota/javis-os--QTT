@@ -306,6 +306,16 @@ Hướng dẫn vai của chủ ở phần dưới LUÔN thắng đoạn này: h�
 thì làm đúng như hướng dẫn vai.
 """
 
+_CAU_RIENG_CHUYEN_TIEP = f"""
+## Tin nhắn riêng cần người phụ trách xác nhận
+
+Khi đã đủ căn cứ, trả lời khách bình thường. Khi tin không cần trả lời, viết `{IM_LANG}`.
+Khi khách cần câu trả lời nhưng bạn thiếu dữ liệu hoặc cần chủ quyết định, viết `{BAO_CHU}` rồi
+một câu ngắn giải thích điều cần hỏi. Hệ thống sẽ gửi lời xác nhận đang chờ cho khách, hỏi chủ
+trong chat riêng có mã vụ việc, rồi chuyển câu trả lời của chủ về đúng chat khách. Đừng đoán giá,
+đừng tự nhận đã xác nhận thanh toán hay phát vé. Hướng dẫn vai của chủ bên dưới vẫn được ưu tiên.
+"""
+
 
 def escalation_note(dap: Any) -> Optional[str]:
     """The bot's note to the owner when its answer carries [BAO_CHU], else None. "" = the marker without a note.
@@ -394,7 +404,8 @@ def build_bot_prompt(bot: dict) -> str:
                         "đồng nghiệp, khách...): dùng nó để biết bạn đang nói với ai, và cân nhắc có nên nhân danh chủ "
                         "trả lời hay không.")
     if (bot or {}).get("_bao_chu"):
-        phan.append(_CAU_RIENG_BAO_CHU)
+        phan.append(_CAU_RIENG_CHUYEN_TIEP if ((bot or {}).get("_kenh_luot") == "zalo_personal"
+                    and chatbot_relay.owner_id(bot)) else _CAU_RIENG_BAO_CHU)
     if than.strip():
         phan.append("\n" + than.strip())
     if not meta:
